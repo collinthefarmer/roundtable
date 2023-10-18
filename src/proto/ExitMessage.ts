@@ -1,6 +1,6 @@
 import { Field, Message } from "protobufjs/light";
 
-export class JoinMessage extends Message<JoinMessage> {
+export class ExitMessage extends Message<ExitMessage> {
     @Field.d(0, "uint32", "required")
     public id: number;
 }

@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 
-import { ChatMessage } from "../proto";
+import { RoomMessage } from "../proto";
 
 export class SocketConnection {
     private ws: WebSocket;
@@ -22,7 +22,7 @@ export class SocketConnection {
         });
     }
 
-    sendMessage(message: ChatMessage) {
-        this.ws.send(ChatMessage.encode(message).finish());
+    sendMessage(message: RoomMessage) {
+        this.ws.send(RoomMessage.encode(message).finish());
     }
 }

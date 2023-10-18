@@ -1,6 +1,17 @@
-import { Server, ServerWebSocket, WebSocketHandler } from "bun";
+import { Server } from "bun";
 
-import { ChatMessage } from "./proto";
+import { Container } from "inversify";
+
+import {
+    Session,
+    SessionConnection,
+    SessionHandler,
+    RoomStore,
+} from "./session.ts";
+import { RoomMessage } from "./proto";
+
+export const container = new Container();
+container.bind(RoomStore).to(RoomStore).inSingletonScope();
 
 const clientScript = (
     await Bun.build({
@@ -19,56 +30,32 @@ export const fetch = async (request: Request, server: Server) => {
     if (!roomMatch) return new Response(null, { status: 404 });
 
     const roomId = roomMatch.replace("/", "");
-    server.upgrade(request, { data: { roomId } });
+    const roomStore = container.get(RoomStore);
+    server.upgrade(request, { data: new Session(roomId, roomStore) });
 
     return new Response(Bun.file("templates/index.html"));
 };
 
-type ConnectionProperties = {
-    roomId: string;
-};
-
-interface Room {
-    id: string;
-    messages: ChatMessage[];
-}
-
-const rooms: { [key: string]: Room } = {};
-
-export const websocket: WebSocketHandler<ConnectionProperties> = {
-    open(ws: ServerWebSocket<ConnectionProperties>): void | Promise<void> {
-        const room: Room = rooms[ws.data.roomId] ?? {
-            id: ws.data.roomId,
-            messages: [],
-        };
-
-        for (const msg of room.messages.slice(-2, room.messages.length)) {
-            ws.send(ChatMessage.encode(msg).finish());
-        }
-
-        ws.subscribe(ws.data.roomId);
-        rooms[ws.data.roomId] = room;
+export const websocket: SessionHandler = {
+    open(ws: SessionConnection): void | Promise<void> {
+        const session = ws.data;
+        session.bind(ws);
     },
     message(
-        ws: ServerWebSocket<ConnectionProperties>,
+        ws: SessionConnection,
         data: string | Buffer,
     ): void | Promise<void> {
-        const room: undefined | Room = rooms[ws.data.roomId];
-
-        if (!room) {
-            ws.close();
-            return;
-        }
-
-        const msg = ChatMessage.decode(new Uint8Array(Buffer.from(data)));
-        room.messages.push(msg);
-
-        ws.publish(ws.data.roomId, ChatMessage.encode(msg).finish());
+        const session = ws.data;
+        const content = new Uint8Array(Buffer.from(data));
+        session.forward(RoomMessage.decode(content), session.userId);
     },
     close(
-        ws: ServerWebSocket<ConnectionProperties>,
+        ws: SessionConnection,
         code: number,
         reason: string,
-    ): void | Promise<void> {},
-    drain(ws: ServerWebSocket<ConnectionProperties>): void | Promise<void> {},
+    ): void | Promise<void> {
+        const session = ws.data;
+        session.drop(code, reason);
+    },
+    // drain(ws: SessionConnection): void | Promise<void> {},
 };
