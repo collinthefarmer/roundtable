@@ -1,7 +1,9 @@
 import { Field, Message, OneOf } from "protobufjs/light";
 
+// Inner Message types
+
 export class ChatMessage extends Message<ChatMessage> {
-    static key: string = "chat";
+    static key = "chat" as const;
 
     @Field.d(10, "string", "required")
     public body: string;
@@ -11,21 +13,21 @@ export class ChatMessage extends Message<ChatMessage> {
 }
 
 export class JoinMessage extends Message<JoinMessage> {
-    static key: string = "join";
+    static key = "join" as const;
 
     @Field.d(10, "uint32", "required")
     public user: number;
 }
 
 export class ExitMessage extends Message<ExitMessage> {
-    static key: string = "exit";
+    static key = "exit" as const;
 
     @Field.d(10, "uint32", "required")
     public user: number;
 }
 
 export class MoveMessage extends Message<MoveMessage> {
-    static key: string = "move";
+    static key = "move" as const;
 
     @Field.d(10, "uint32", "required")
     public x: number;
@@ -35,11 +37,20 @@ export class MoveMessage extends Message<MoveMessage> {
 }
 
 export class TalkMessage extends Message<TalkMessage> {
-    static key: string = "talk";
+    static key = "talk" as const;
 
-    @Field.d(10, "bytes", "required")
-    public blob: Uint8Array;
+    @Field.d(10, "uint32", "required")
+    public user: number;
 }
+
+export class TickMessage extends Message<TickMessage> {
+    static key = "tick" as const;
+
+    @Field.d(10, "uint32", "required")
+    public user: number;
+}
+
+// additional Message Messages
 
 export class MessageMeta extends Message<MessageMeta> {
     @Field.d(0, "uint32", "required")
@@ -49,14 +60,23 @@ export class MessageMeta extends Message<MessageMeta> {
     public timestamp: number;
 }
 
-export type MessageType =
+export type MessageStaticType =
     | typeof ChatMessage
     | typeof JoinMessage
     | typeof ExitMessage
     | typeof MoveMessage
-    | typeof TalkMessage;
+    | typeof TalkMessage
+    | typeof TickMessage;
 
-export class HostMessage extends Message<HostMessage> {
+export type MessageTypeKey = MessageStaticType["key"];
+
+export type MessageOfType<S extends MessageTypeKey> = Required<
+    Omit<RoomMessage, Exclude<MessageTypeKey, S>>
+>;
+
+// Core Message Class
+
+export class RoomMessage extends Message<RoomMessage> {
     @Field.d(0, MessageMeta, "required")
     public meta: MessageMeta;
 
@@ -95,15 +115,22 @@ export class HostMessage extends Message<HostMessage> {
     public talk?: TalkMessage;
 
     static get Talk() {
-        return this.makeMessage(ExitMessage);
+        return this.makeMessage(TalkMessage);
     }
 
-    @OneOf.d("chat", "join", "exit", "move", "talk")
-    public type: string;
+    @Field.d(15, TickMessage, "optional")
+    public tick?: TickMessage;
+
+    static get Tick() {
+        return this.makeMessage(TickMessage);
+    }
+
+    @OneOf.d("chat", "join", "exit", "move", "talk", "tick")
+    public type: MessageTypeKey;
 
     reSource(source: number): Uint8Array {
-        return HostMessage.encode(
-            new HostMessage(
+        return RoomMessage.encode(
+            new RoomMessage(
                 Object.assign(this, {
                     source,
                 }),
@@ -111,14 +138,14 @@ export class HostMessage extends Message<HostMessage> {
         ).finish();
     }
 
-    private static makeMessage<M extends MessageType>(m: M) {
+    private static makeMessage<M extends MessageStaticType>(m: M) {
         return (
             messageId: number,
             source: number,
             ...params: ConstructorParameters<M>
         ) =>
-            HostMessage.encode(
-                new HostMessage({
+            RoomMessage.encode(
+                new RoomMessage({
                     source,
                     meta: new MessageMeta({
                         id: messageId,

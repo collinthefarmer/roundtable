@@ -1,1 +1,1 @@
-export { HostMessage } from "./messages.ts";
+export { RoomMessage, type MessageTypeKey, type MessageOfType } from "./messages.ts";

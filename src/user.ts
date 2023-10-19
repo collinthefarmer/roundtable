@@ -3,7 +3,7 @@ import { inject, injectable } from "inversify";
 
 import { Room, RoomStore } from "./room.ts";
 
-import { HostMessage } from "./proto";
+import { RoomMessage } from "./proto";
 
 @injectable()
 export class UserStore {}
@@ -51,28 +51,28 @@ export class User {
         this.assertBind();
         this.conn.publishBinary(
             this.room.topic,
-            HostMessage.decode(data).reSource(this.id),
+            RoomMessage.decode(data).reSource(this.id),
         );
     }
 
     sendChat(from: number, body: string) {
         this.assertBind();
         this.conn.sendBinary(
-            HostMessage.Chat(this.room.nextMessageId(), from, { body }),
+            RoomMessage.Chat(this.room.nextMessageId(), from, { body }),
         );
     }
 
     sendJoin(user: number) {
         this.assertBind();
         this.conn.sendBinary(
-            HostMessage.Join(this.room.nextMessageId(), 0, { user }),
+            RoomMessage.Join(this.room.nextMessageId(), 0, { user }),
         );
     }
 
     sendExit(user: number) {
         this.assertBind();
         this.conn.sendBinary(
-            HostMessage.Exit(this.room.nextMessageId(), 0, { user }),
+            RoomMessage.Exit(this.room.nextMessageId(), 0, { user }),
         );
     }
 

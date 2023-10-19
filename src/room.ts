@@ -2,7 +2,7 @@ import { inject, injectable } from "inversify";
 
 import { StorageService } from "./storage.ts";
 import { User } from "./user.ts";
-import { HostMessage } from "./proto";
+import { RoomMessage } from "./proto";
 
 @injectable()
 export class RoomStore {
@@ -35,7 +35,7 @@ export class Room {
 
     joinUser(user: User) {
         user.push(
-            HostMessage.Join(this.nextMessageId(), 0, {
+            RoomMessage.Join(this.nextMessageId(), 0, {
                 user: user.id,
             }),
         );

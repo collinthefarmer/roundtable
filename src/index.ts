@@ -12,7 +12,6 @@ import { RoomStore } from "./room.ts";
 export const clientScript = (
     await Bun.build({
         entrypoints: ["./src/client/index.ts"],
-        minify: true,
         target: "browser",
     })
 ).outputs[0];
