@@ -1,61 +1,86 @@
 import { Server } from "bun";
 
-import { Container } from "inversify";
+import { clientScript, container } from "./index.ts";
 
-import {
-    Session,
-    SessionConnection,
-    SessionHandler,
-    RoomStore,
-} from "./session.ts";
-import { RoomMessage } from "./proto";
+import { User } from "./user.ts";
 
-export const container = new Container();
-container.bind(RoomStore).to(RoomStore).inSingletonScope();
+const ROOM_TEMPLATE = "templates/index.html";
 
-const clientScript = (
-    await Bun.build({
-        entrypoints: ["./src/client/index.ts"],
-        minify: true,
-        target: "browser",
-    })
-).outputs[0];
+const ROUTES: Record<string, RouteResolver> = {
+    "^\\/static\\/(?<path>.+)$": {
+        get: (routeMatch, request, server) => {
+            const path = routeMatch.path;
+            if (path === "client.js") {
+                return new Response(clientScript);
+            }
 
-export const fetch = async (request: Request, server: Server) => {
-    if (request.url.endsWith("client.js")) {
-        return new Response(clientScript);
-    }
+            return new Response(Bun.file(path));
+        },
+    },
+    "^\\/rooms\\/(?<roomId>\\d+)$": {
+        get: (routeMatch, request, server) => {
+            const sessionContainer = container.createChild();
 
-    const roomMatch = new URL(request.url).pathname.match(/^\/\d+$/)?.[0];
-    if (!roomMatch) return new Response(null, { status: 404 });
+            const roomId = routeMatch.roomId;
+            sessionContainer.bind(User.ROOM_ID).toConstantValue(roomId);
+            sessionContainer.bind(User.REQUEST).toConstantValue(request);
 
-    const roomId = roomMatch.replace("/", "");
-    const roomStore = container.get(RoomStore);
-    server.upgrade(request, { data: new Session(roomId, roomStore) });
+            const user = sessionContainer.get(User);
+            server.upgrade(request, { data: user });
 
-    return new Response(Bun.file("templates/index.html"));
+            return new Response(Bun.file(ROOM_TEMPLATE));
+        },
+    },
 };
 
-export const websocket: SessionHandler = {
-    open(ws: SessionConnection): void | Promise<void> {
-        const session = ws.data;
-        session.bind(ws);
-    },
-    message(
-        ws: SessionConnection,
-        data: string | Buffer,
-    ): void | Promise<void> {
-        const session = ws.data;
-        const content = new Uint8Array(Buffer.from(data));
-        session.forward(RoomMessage.decode(content), session.userId);
-    },
-    close(
-        ws: SessionConnection,
-        code: number,
-        reason: string,
-    ): void | Promise<void> {
-        const session = ws.data;
-        session.drop(code, reason);
-    },
-    // drain(ws: SessionConnection): void | Promise<void> {},
+function matchRoute(route: string, path: string): PathMatch | null {
+    const patternMatches = path.match(route)?.groups;
+    if (!patternMatches) return null;
+
+    return {
+        patternMatches,
+        route,
+    };
+}
+
+type PathMatch = { patternMatches: Record<string, string>; route: string };
+
+const pathMatches: Record<string, PathMatch> = {};
+
+export const fetch = async (request: Request, server: Server) => {
+    const path = new URL(request.url).pathname;
+
+    let routeMatch = pathMatches[path];
+    if (routeMatch === undefined) {
+        for (const route in ROUTES) {
+            const match = matchRoute(route, path);
+
+            if (match) {
+                routeMatch = pathMatches[path] = match;
+                break;
+            }
+        }
+    }
+
+    if (!routeMatch) {
+        return new Response(null, { status: 404 });
+    }
+
+    const method = request.method.toLowerCase() as HTTPMethod;
+    const resolver = ROUTES[routeMatch.route][method];
+    if (!resolver) {
+        return new Response(null, { status: 405 });
+    }
+
+    return resolver(routeMatch.patternMatches, request, server);
+};
+
+type HTTPMethod = "get" | "post" | "put" | "delete";
+
+type RouteResolver = {
+    [key in HTTPMethod]?: (
+        routeMatch: Record<string, string>,
+        request: Request,
+        server: Server,
+    ) => Response | Promise<Response>;
 };

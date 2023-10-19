@@ -1,97 +1,68 @@
-import { inject, injectable, unmanaged } from "inversify";
-import { Message } from "protobufjs/light";
+import { inject, injectable } from "inversify";
 
-import { ServerWebSocket, WebSocketHandler } from "bun";
-
-import { ChatMessage } from "./proto";
-import { container } from "./router.ts";
-
-interface ParticipantData {
-    roomId: string;
-    userId: string;
-}
-
-export type ParticipantConnection = ServerWebSocket<ParticipantData>;
-export type ParticipantConnectionHandler = WebSocketHandler<ParticipantData>;
-
-
-@injectable()
-export class Participant {
-    static fromWS(ws: ParticipantConnection) {
-        return new Participant(ws);
-    }
-
-    roomId: string;
-    userId: string;
-
-    sendMessage(body: string) {}
-
-    joinRoom(room: Room) {
-        for (const t in Object.values(room.topics)) {
-            this.ws.subscribe(t);
-        }
-    }
-
-    constructor(
-        private ws: ParticipantConnection
-    ) {
-        this.userId = this.ws.data.userId;
-        this.roomId = this.ws.data.roomId;
-    }
-}
+import { StorageService } from "./storage.ts";
+import { User } from "./user.ts";
+import { HostMessage } from "./proto";
 
 @injectable()
 export class RoomStore {
-    private store: { [key: string]: Room } = {};
+    constructor(@inject(StorageService) private storage: StorageService) {}
 
-    get(id: string): Room | undefined {
-        return this.store[id];
-    }
+    getOrCreateRoom(roomId: string): Room {
+        let room = this.storage.get(roomId, Room);
+        if (!room) {
+            room = this.storage.create(roomId, new Room(roomId));
+        }
 
-    getOrCreate(id: string): Room {
-        if (id in this.store) return this.store[id];
-
-        const createdRoom = container.get(Room);
-        createdRoom.id = id;
-        this.add(createdRoom);
-
-        return createdRoom;
-    }
-
-    private add(room: Room) {
-        this.store[room.id] = room;
+        return room;
     }
 }
 
-@injectable()
 export class Room {
-    static RECENT_MESSAGES_OFFSET = 60 * 60 * 1000;
-
     public id: string;
 
-    public messages: ChatMessage[] = [];
+    public users: User[] = [];
 
-    get topics() {
-        return {
-            chat: this.messageTopic(ChatMessage),
-        };
+    public topic: string;
+
+    public usrId: number = 0;
+    public msgId: number = 0;
+
+    constructor(roomId: string) {
+        this.id = roomId;
+        this.topic = `rooms/${this.id}`;
     }
 
-    get recentMessages() {
-        return this.messages.filter(
-            (m) =>
-                m.timestamp >=
-                new Date().getTime() - Room.RECENT_MESSAGES_OFFSET,
+    joinUser(user: User) {
+        user.push(
+            HostMessage.Join(this.nextMessageId(), 0, {
+                user: user.id,
+            }),
         );
+
+        // send joins for any currently connected users to joining user
+        for (const curr of this.users) {
+            user.sendJoin(curr.id);
+        }
+
+        this.users.push(user);
     }
 
-    constructor(@inject(RoomStore) private roomStore: RoomStore) {}
+    exitUser(user: User) {
+        this.users = this.users.filter((u) => u !== user);
 
-    addMessage(msg: ChatMessage) {
-        this.messages.push(msg);
+        if (this.users.length === 0) return;
+
+        for (const curr of this.users) {
+            curr.sendExit(user.id);
+        }
     }
 
-    private messageTopic(n: typeof Message) {
-        return `${this.id}/${n.$type.name}`;
+    nextUserID(): number {
+        return this.usrId++;
+    }
+
+    nextMessageId(): number {
+        return this.msgId++;
     }
 }
