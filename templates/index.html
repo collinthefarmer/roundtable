@@ -3,40 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
-    <script src="/static/client.js" type="module"></script>
 </head>
 <body>
-<div id="ind"></div>
-<main id="messages"></main>
-<aside>
-    <input id="input" type="text">
-    <button id="send">send</button>
-</aside>
-</body>
-<style>
-    body {
-        position: fixed;
-        width: 100vh;
-        height: 100vh;
-
-        margin: 0;
-        padding: 0;
-    }
-
-    .ind {
-        --x: 0;
-        --y: 0;
-        --i: 0;
-
-        background-color: hsla(calc((360deg / 12.5) * var(--i)), 100%, 60%, 100%);
-
-        width: 1em;
-        height: 1em;
-        position: absolute;
-        top: var(--y);
-        left: var(--x);
-
-        clip-path: polygon(0 0, 50% 100%, 100% 50%);
-    }
-</style>
+<main></main>
+<script src="/static/client.js"></script>
 </html>

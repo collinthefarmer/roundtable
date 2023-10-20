@@ -55,6 +55,11 @@ export class User {
         );
     }
 
+    send(data: Uint8Array) {
+        this.assertBind();
+        this.conn.sendBinary(RoomMessage.decode(data).reSource(this.id));
+    }
+
     sendChat(from: number, body: string) {
         this.assertBind();
         this.conn.sendBinary(

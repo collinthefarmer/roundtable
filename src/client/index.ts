@@ -1,8 +1,17 @@
 /// <reference lib="dom" />
+import { createApp } from "vue";
 
-import { Connection } from "./connection.ts";
-import { RoomMessage } from "../proto";
-import { ChatMessage, JoinMessage } from "../proto/messages.ts";
+import Application from "./components/Application.ts";
+
+function init() {
+    const main = document.querySelector("main");
+    if (!main) throw new Error("No main!");
+
+    const vapp = createApp(Application);
+    vapp.mount(main);
+}
+
+init();
 
 // const messages: HTMLDivElement = document.querySelector("#messages")!;
 // const send: HTMLButtonElement = document.querySelector("#send")!;
@@ -62,8 +71,3 @@ import { ChatMessage, JoinMessage } from "../proto/messages.ts";
 //     });
 //     connection.sendMessage(move);
 // });
-
-const connection = Connection.atCurrentLocation();
-connection.addEventListener("message:join", (ev) => {
-    console.log(ev.detail.join.user);
-});
