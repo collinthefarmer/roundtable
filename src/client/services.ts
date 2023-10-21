@@ -1,7 +1,6 @@
 /// <reference lib="dom" />
-import { inject, provide, ref, type Ref } from "vue";
-import { RoomMessage, type MessageOfType, type MessageTypeKey } from "../proto";
-import { Message } from "protobufjs/light";
+import {inject, provide, ref, type Ref} from "vue";
+import {type MessageOfType, type MessageTypeKey, RoomMessage} from "../proto";
 
 // helper abstract class for DI methods and type safety
 abstract class SingletonService extends EventTarget {
@@ -85,7 +84,7 @@ export class ServerConnection extends SingletonService {
 
         this.ws = new WebSocket(address.replace(/^http/, "ws"));
 
-        const opts = { signal: this.abort.signal };
+        const opts = {signal: this.abort.signal};
         this.ws.addEventListener("open", this.onOpen.bind(this), opts);
         this.ws.addEventListener("close", this.onClose.bind(this), opts);
         this.ws.addEventListener("message", this.onMessage.bind(this), opts);
@@ -106,7 +105,7 @@ export class ServerConnection extends SingletonService {
         const data = await msg.data.arrayBuffer();
         const message = RoomMessage.decode(new Uint8Array(data));
 
-        const { type } = message;
+        const {type} = message;
         const event = new CustomEvent(`message:${type}`, {
             detail: message,
         });
@@ -123,10 +122,10 @@ export class ServerConnection extends SingletonService {
 export type Chat = MessageOfType<"chat">;
 
 export class ChatMessageService extends SingletonService {
-    private chats: Record<number, Chat> = {};
+    private chats: Chat[] = [];
 
-    roomChats = ref<Record<number, Chat>>({});
-    replies = ref<Record<number, Record<number, Chat>>>({});
+    roomChats = ref<Chat[]>([]);
+    replies: Ref<Chat[]>[] = [];
 
     listen(conn: ServerConnection) {
         conn.addEventListener("message:chat", (ev) => this.onChat(ev.detail));
@@ -134,29 +133,37 @@ export class ChatMessageService extends SingletonService {
 
     onChat(msg: Chat) {
         this.chats[msg.meta.id] = msg;
-        this.replies.value[msg.meta.id] = {};
+        this.replies[msg.meta.id] = ref([]);
+
+        // console.log(`message ${msg.meta.id} received`)
 
         if (msg.chat.reId) {
-            // todo: what if it's a reply to a message this user hasn't seen?
-            this.replies.value[msg.chat.reId].push(msg);
+            // console.log(`it's a reply to ${msg.chat.reId}`)
+
+            const target = this.replies[msg.chat.reId];
+            if (!target) {
+                console.log("replied to missing message!")
+            }
+
+            target.value.push(msg)
         } else {
             this.roomChats.value.push(msg);
         }
     }
 
     repliesRef(msg: Chat) {
-        return this.replies.value[msg.meta.id];
+        return this.replies[msg.meta.id];
     }
 }
 
 export class UserLookupManager extends SingletonService {
     private users: Record<number, Ref<{ name: string }>> = {
-        0: ref({ name: "ROOM" }),
+        0: ref({name: "ROOM"}),
     };
 
     ref(user: number): Ref<{ name: string }> {
         if (user in this.users) return this.users[user];
-        const sourceValue = { name: "unresolved" };
+        const sourceValue = {name: "unresolved"};
         const sourceRef = ref(sourceValue);
         this.users[user] = sourceRef;
 
@@ -164,10 +171,10 @@ export class UserLookupManager extends SingletonService {
     }
 
     registerJoined(join: MessageOfType<"join">): void {
-        const { user } = join.join;
+        const {user} = join.join;
         const ref = this.users[user] ?? this.ref(user);
 
-        const userData = { name: "jimmy" }; // resolve this from somewhere
+        const userData = {name: "jimmy"}; // resolve this from somewhere
         ref.value = userData;
     }
 }

@@ -45,19 +45,8 @@ export class Room {
             user.sendJoin(curr.id);
         }
 
-        // send user a welcome message
+        // send user a welcome message (for testing)
         user.sendChat(0, "Hello from the server!");
-
-        let reNm = 0;
-        const ogid = this.msgId;
-        setInterval(() => {
-            user.send(
-                RoomMessage.Chat(this.nextMessageId(), 0, {
-                    reId: ogid,
-                    body: `${reNm++}`,
-                }),
-            );
-        }, 1000);
 
         this.users.push(user);
     }

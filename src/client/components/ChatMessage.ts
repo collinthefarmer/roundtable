@@ -1,5 +1,5 @@
-import { h } from "vue";
-import { Chat, ChatMessageService, UserLookupManager } from "../services.ts";
+import {h} from "vue";
+import {Chat, ChatMessageService, UserLookupManager} from "../services.ts";
 
 export const ChatMessage = {
     props: {
@@ -7,7 +7,7 @@ export const ChatMessage = {
     },
     setup(props: { message: Chat }) {
         const {
-            chat: { body },
+            chat: {body},
             source,
         } = props.message;
 
@@ -18,14 +18,14 @@ export const ChatMessage = {
         const replies = chatMessageService.repliesRef(props.message);
 
         return () =>
-            h("article", { style: `--source: ${source};` }, [
+            h("article", {style: `--source: ${source};`}, [
                 h("h6", fromUser.value.name),
                 h("p", body),
                 h(
                     "ol",
-                    replies.value.map((c) => {
-                        h("li", h(ChatMessage, { message: c }));
-                    }),
+                    replies.value.map((c) =>
+                        h("li", h(ChatMessage, {message: c}))
+                    ),
                 ),
             ]);
     },
