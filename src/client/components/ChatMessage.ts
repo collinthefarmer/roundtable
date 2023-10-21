@@ -1,5 +1,5 @@
 import {h} from "vue";
-import {Chat, ChatMessageService, UserLookupManager} from "../services.ts";
+import {Chat, ChatMessageService, UserLookupService} from "../services.ts";
 
 export const ChatMessage = {
     props: {
@@ -11,7 +11,7 @@ export const ChatMessage = {
             source,
         } = props.message;
 
-        const users = UserLookupManager.resolve();
+        const users = UserLookupService.resolve();
         const fromUser = users.ref(source);
 
         const chatMessageService = ChatMessageService.resolve();

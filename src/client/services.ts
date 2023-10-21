@@ -156,7 +156,35 @@ export class ChatMessageService extends SingletonService {
     }
 }
 
-export class UserLookupManager extends SingletonService {
+export type Join = MessageOfType<"join">
+export type Exit = MessageOfType<"exit">
+export type Move = MessageOfType<"move">
+
+export class UserPresenceService extends SingletonService {
+    users: Ref<number[]> = ref([]);
+
+
+
+    listen(conn: ServerConnection) {
+        conn.addEventListener("message:join", (ev) => this.onJoin(ev.detail));
+        conn.addEventListener("message:exit", (ev) => this.onExit(ev.detail));
+        conn.addEventListener("message:move", (ev) => this.onMove(ev.detail));
+    }
+
+    onJoin(msg: Join) {
+        this.users
+    }
+
+    onExit(msg: Exit) {
+
+    }
+
+    onMove(msg: Move) {
+
+    }
+}
+
+export class UserLookupService extends SingletonService {
     private users: Record<number, Ref<{ name: string }>> = {
         0: ref({name: "ROOM"}),
     };
@@ -178,3 +206,5 @@ export class UserLookupManager extends SingletonService {
         ref.value = userData;
     }
 }
+
+

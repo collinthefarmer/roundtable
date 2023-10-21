@@ -1,7 +1,7 @@
 import {
     ChatMessageService,
     ServerConnection,
-    UserLookupManager,
+    UserLookupService,
 } from "../services.ts";
 import { h } from "vue";
 import ChatWindow from "./ChatWindow.ts";
@@ -13,7 +13,7 @@ export default {
         const chatMessageService = ChatMessageService.instantiate();
         chatMessageService.listen(connection);
 
-        const userLookupManager = UserLookupManager.instantiate();
+        const userLookupManager = UserLookupService.instantiate();
 
         return () => h(ChatWindow);
     },
