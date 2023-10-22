@@ -1,5 +1,5 @@
 import { h } from "vue";
-
+import { c } from "./Application.ts";
 import ChatMessage from "./ChatMessage.ts";
 import ChatInput from "./ChatInput.ts";
 
@@ -7,7 +7,7 @@ import { ChatMessageService } from "../services.ts";
 
 export default {
     setup() {
-        const chatMessageService = ChatMessageService.resolve();
+        const chatMessageService = c.get(ChatMessageService);
         const roomChats = chatMessageService.roomChats;
 
         return () =>

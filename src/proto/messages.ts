@@ -9,7 +9,7 @@ export class ChatMessage extends Message<ChatMessage> {
     public body: string;
 
     @Field.d(11, "uint32", "required")
-    public reId: number;
+    public reId?: number;
 }
 
 export class JoinMessage extends Message<JoinMessage> {
@@ -127,16 +127,6 @@ export class RoomMessage extends Message<RoomMessage> {
 
     @OneOf.d("chat", "join", "exit", "move", "talk", "tick")
     public type: MessageTypeKey;
-
-    reSource(source: number): Uint8Array {
-        return RoomMessage.encode(
-            new RoomMessage(
-                Object.assign(this, {
-                    source,
-                }),
-            ),
-        ).finish();
-    }
 
     private static makeMessage<M extends MessageStaticType>(m: M) {
         return (

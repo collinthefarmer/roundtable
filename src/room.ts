@@ -3,6 +3,7 @@ import { inject, injectable } from "inversify";
 import { StorageService } from "./storage.ts";
 import { User } from "./user.ts";
 import { RoomMessage } from "./proto";
+import { MessageMeta } from "./proto/messages.ts";
 
 @injectable()
 export class RoomStore {
@@ -19,13 +20,15 @@ export class RoomStore {
 }
 
 export class Room {
+    static ROOM_SOURCE_ID = 1;
+
     public id: string;
 
     public users: User[] = [];
 
     public topic: string;
 
-    public usrId: number = 0;
+    public usrId: number = 2;
     public msgId: number = 0;
 
     constructor(roomId: string) {
@@ -33,9 +36,23 @@ export class Room {
         this.topic = `rooms/${this.id}`;
     }
 
+    stampMessage(message: RoomMessage, source: number): Uint8Array {
+        return RoomMessage.encode(
+            new RoomMessage({
+                meta: new MessageMeta({
+                    id: this.nextMessageId(),
+                    timestamp: message.meta.timestamp,
+                }),
+                source,
+                type: message.type,
+                [message.type]: message[message.type],
+            }),
+        ).finish();
+    }
+
     joinUser(user: User) {
         user.push(
-            RoomMessage.Join(this.nextMessageId(), 0, {
+            RoomMessage.Join(this.nextMessageId(), Room.ROOM_SOURCE_ID, {
                 user: user.id,
             }),
         );
@@ -46,7 +63,7 @@ export class Room {
         }
 
         // send user a welcome message (for testing)
-        user.sendChat(0, "Hello from the server!");
+        user.sendChat("Hello from the room!");
 
         this.users.push(user);
     }

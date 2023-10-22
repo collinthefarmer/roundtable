@@ -1,4 +1,6 @@
 /// <reference lib="dom" />
+import "reflect-metadata";
+
 import { createApp } from "vue";
 
 import Application from "./components/Application.ts";

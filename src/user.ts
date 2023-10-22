@@ -49,35 +49,37 @@ export class User {
 
     push(data: Uint8Array) {
         this.assertBind();
+
         this.conn.publishBinary(
             this.room.topic,
-            RoomMessage.decode(data).reSource(this.id),
+            this.room.stampMessage(RoomMessage.decode(data), this.id),
         );
     }
 
-    send(data: Uint8Array) {
-        this.assertBind();
-        this.conn.sendBinary(RoomMessage.decode(data).reSource(this.id));
-    }
-
-    sendChat(from: number, body: string) {
+    sendChat(body: string) {
         this.assertBind();
         this.conn.sendBinary(
-            RoomMessage.Chat(this.room.nextMessageId(), from, { body }),
+            RoomMessage.Chat(this.room.nextMessageId(), Room.ROOM_SOURCE_ID, {
+                body,
+            }),
         );
     }
 
     sendJoin(user: number) {
         this.assertBind();
         this.conn.sendBinary(
-            RoomMessage.Join(this.room.nextMessageId(), 0, { user }),
+            RoomMessage.Join(this.room.nextMessageId(), Room.ROOM_SOURCE_ID, {
+                user,
+            }),
         );
     }
 
     sendExit(user: number) {
         this.assertBind();
         this.conn.sendBinary(
-            RoomMessage.Exit(this.room.nextMessageId(), 0, { user }),
+            RoomMessage.Exit(this.room.nextMessageId(), Room.ROOM_SOURCE_ID, {
+                user,
+            }),
         );
     }
 

@@ -14,19 +14,23 @@ const ROUTES: Record<string, RouteResolver> = {
                 return new Response(clientScript);
             }
 
-            return new Response(Bun.file(path));
+            return new Response(Bun.file(`./static/${path}`));
         },
     },
     "^\\/rooms\\/(?<roomId>\\d+)$": {
         get: (routeMatch, request, server) => {
-            const sessionContainer = container.createChild();
+            if (request.headers.get("upgrade") === "websocket") {
+                const sessionContainer = container.createChild();
 
-            const roomId = routeMatch.roomId;
-            sessionContainer.bind(User.ROOM_ID).toConstantValue(roomId);
-            sessionContainer.bind(User.REQUEST).toConstantValue(request);
+                const roomId = routeMatch.roomId;
+                sessionContainer.bind(User.ROOM_ID).toConstantValue(roomId);
+                sessionContainer.bind(User.REQUEST).toConstantValue(request);
 
-            const user = sessionContainer.get(User);
-            server.upgrade(request, { data: user });
+                const user = sessionContainer.get(User);
+
+                server.upgrade(request, { data: user });
+                return new Response(null, { status: 200 });
+            }
 
             return new Response(Bun.file(ROOM_TEMPLATE));
         },

@@ -1,49 +1,8 @@
 /// <reference lib="dom" />
-import {inject, provide, ref, type Ref} from "vue";
-import {type MessageOfType, type MessageTypeKey, RoomMessage} from "../proto";
-
-// helper abstract class for DI methods and type safety
-abstract class SingletonService extends EventTarget {
-    static services = new Map<typeof SingletonService, symbol>();
-
-    protected static getInjectionKey(t: typeof SingletonService) {
-        return this.services.get(t);
-    }
-
-    protected static setInjectionKey(t: typeof SingletonService) {
-        if (this.services.has(t)) {
-            throw new Error(`SingletonService ${t.name} instantiated twice!`);
-        }
-
-        const sym = Symbol(t.name);
-        this.services.set(t, sym);
-
-        return sym;
-    }
-
-    static instantiate<T extends new (...args: any) => any>(
-        this: T,
-        ...args: ConstructorParameters<T>
-    ): InstanceType<T> {
-        const inst = new this(...(args as any));
-        provide(SingletonService.setInjectionKey(this as any), inst);
-
-        return inst;
-    }
-
-    static resolve<T extends new (...args: any) => any>(
-        this: T,
-    ): InstanceType<T> {
-        const key = SingletonService.getInjectionKey(this as any);
-        if (!key) {
-            throw new Error(
-                `Attempted to resolve ${this.name} before it has been provided!`,
-            );
-        }
-
-        return inject(key) as InstanceType<T>;
-    }
-}
+import { ref, type Ref } from "vue";
+import { inject, injectable } from "inversify";
+import { type MessageOfType, type MessageTypeKey, RoomMessage } from "../proto";
+import { ChatMessage, MessageMeta } from "../proto/messages.ts";
 
 export type ConnectionEventString =
     | (typeof ServerConnection)["AFTER_OPEN"]
@@ -70,21 +29,28 @@ export interface ServerConnection {
     ): void;
 }
 
-export class ServerConnection extends SingletonService {
+@injectable()
+export class ServerConnection extends EventTarget {
     static AFTER_OPEN = "afterOpen" as const;
     static AFTER_CLOSE = "afterClose" as const;
     static ON_ERROR = "error" as const;
 
     private abort = new AbortController();
 
-    private ws: WebSocket;
+    static fromAddress(address: string) {
+        return new ServerConnection(
+            new WebSocket(address.replace(/^http/, "ws")),
+        );
+    }
 
-    constructor(address: string) {
+    send(data: Uint8Array) {
+        this.ws.send(data);
+    }
+
+    constructor(private ws: WebSocket) {
         super();
 
-        this.ws = new WebSocket(address.replace(/^http/, "ws"));
-
-        const opts = {signal: this.abort.signal};
+        const opts = { signal: this.abort.signal };
         this.ws.addEventListener("open", this.onOpen.bind(this), opts);
         this.ws.addEventListener("close", this.onClose.bind(this), opts);
         this.ws.addEventListener("message", this.onMessage.bind(this), opts);
@@ -105,7 +71,7 @@ export class ServerConnection extends SingletonService {
         const data = await msg.data.arrayBuffer();
         const message = RoomMessage.decode(new Uint8Array(data));
 
-        const {type} = message;
+        const { type } = message;
         const event = new CustomEvent(`message:${type}`, {
             detail: message,
         });
@@ -121,17 +87,40 @@ export class ServerConnection extends SingletonService {
 
 export type Chat = MessageOfType<"chat">;
 
-export class ChatMessageService extends SingletonService {
+@injectable()
+export class ChatMessageService {
     private chats: Chat[] = [];
 
     roomChats = ref<Chat[]>([]);
     replies: Ref<Chat[]>[] = [];
 
-    listen(conn: ServerConnection) {
+    constructor(@inject(ServerConnection) conn: ServerConnection) {
         conn.addEventListener("message:chat", (ev) => this.onChat(ev.detail));
     }
 
+    addOwnChat(body: string, reId?: number) {
+        const msg = new RoomMessage({
+            source: 0,
+            meta: new MessageMeta({
+                id: this.chats.length,
+                timestamp: Date.now(),
+            }),
+            type: "chat",
+            chat: new ChatMessage({
+                body,
+                reId,
+            }),
+        });
+
+        this.onChat(msg as Chat);
+    }
+
     onChat(msg: Chat) {
+        const existing = this.chats[msg.meta.id];
+        if (existing && existing.source < 0) {
+            this.moveOwn(msg.meta.id, existing, msg);
+        }
+
         this.chats[msg.meta.id] = msg;
         this.replies[msg.meta.id] = ref([]);
 
@@ -142,56 +131,76 @@ export class ChatMessageService extends SingletonService {
 
             const target = this.replies[msg.chat.reId];
             if (!target) {
-                console.log("replied to missing message!")
+                console.log("replied to missing message!");
             }
 
-            target.value.push(msg)
+            target.value.push(msg);
         } else {
-            this.roomChats.value.push(msg);
+            this.roomChats.value[msg.meta.id] = msg;
         }
     }
 
     repliesRef(msg: Chat) {
         return this.replies[msg.meta.id];
     }
+
+    private moveOwn(from: number, own: Chat, after: Chat): void {
+        const idx = after.meta.id + 1;
+        const next = this.chats[idx];
+        if (next) {
+            this.moveOwn(from, own, next);
+        }
+
+        this.chats[idx] = this.chats[from];
+        this.replies[idx] = this.replies[from];
+
+        if (this.roomChats.value.includes(own)) {
+            this.roomChats.value[idx] = this.roomChats.value[from];
+        }
+    }
 }
 
-export type Join = MessageOfType<"join">
-export type Exit = MessageOfType<"exit">
-export type Move = MessageOfType<"move">
+export type Join = MessageOfType<"join">;
+export type Exit = MessageOfType<"exit">;
+export type Move = MessageOfType<"move">;
 
-export class UserPresenceService extends SingletonService {
+export type UserPosition = [number, number];
+
+@injectable()
+export class UserPresenceService {
     users: Ref<number[]> = ref([]);
+    positions: Array<Ref<UserPosition>> = [];
 
-
-
-    listen(conn: ServerConnection) {
+    constructor(@inject(ServerConnection) conn: ServerConnection) {
         conn.addEventListener("message:join", (ev) => this.onJoin(ev.detail));
         conn.addEventListener("message:exit", (ev) => this.onExit(ev.detail));
         conn.addEventListener("message:move", (ev) => this.onMove(ev.detail));
     }
 
     onJoin(msg: Join) {
-        this.users
+        this.users.value.push(msg.join.user);
+        this.positions[msg.join.user] = ref([0, 0]);
     }
 
     onExit(msg: Exit) {
-
+        this.users.value = this.users.value.filter((f) => f !== msg.exit.user);
     }
 
     onMove(msg: Move) {
-
+        this.positions[msg.source].value = [msg.move.x, msg.move.y];
     }
 }
 
-export class UserLookupService extends SingletonService {
+@injectable()
+export class UserLookupService {
     private users: Record<number, Ref<{ name: string }>> = {
-        0: ref({name: "ROOM"}),
+        0: ref({ name: "SELF" }),
+        1: ref({ name: "ROOM" }),
     };
 
     ref(user: number): Ref<{ name: string }> {
         if (user in this.users) return this.users[user];
-        const sourceValue = {name: "unresolved"};
+        const sourceValue = { name: "unresolved" };
         const sourceRef = ref(sourceValue);
         this.users[user] = sourceRef;
 
@@ -199,12 +208,35 @@ export class UserLookupService extends SingletonService {
     }
 
     registerJoined(join: MessageOfType<"join">): void {
-        const {user} = join.join;
+        const { user } = join.join;
         const ref = this.users[user] ?? this.ref(user);
 
-        const userData = {name: "jimmy"}; // resolve this from somewhere
+        const userData = { name: "jimmy" }; // resolve this from somewhere
         ref.value = userData;
     }
 }
 
+@injectable()
+export class ClientActivity {
+    constructor(
+        @inject(ServerConnection) private conn: ServerConnection,
+        @inject(ChatMessageService) private chats: ChatMessageService,
+    ) {}
 
+    sendChat(body: string) {
+        const msg = RoomMessage.Chat(0, 0, { body });
+
+        this.chats.addOwnChat(body);
+        this.conn.send(msg);
+    }
+
+    sendMove(posi: UserPosition) {
+        const [x, y] = posi;
+        this.conn.send(
+            RoomMessage.Move(0, 0, {
+                x,
+                y,
+            }),
+        );
+    }
+}

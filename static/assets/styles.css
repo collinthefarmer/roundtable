@@ -1,0 +1,43 @@
+:root {
+    --source: 0;
+
+    --x: 0;
+    --y: 0;
+}
+
+.sourced {
+    background-color: hsla(calc(20.5deg * var(--source)), 99%, 92%, 100%);
+}
+
+.ind {
+    position: fixed;
+    top: var(--y);
+    left: var(--x);
+
+    clip-path: polygon(0 0, 50% 100%, 100% 50%);
+
+    transition: top .2s cubic-bezier(1, 0, 0, 1), left .2s cubic-bezier(1, 0, 0, 1);
+}
+
+.ind, .ind::before, .ind::after {
+    width: 1em;
+    height: 1em;
+}
+
+.ind::after {
+    content: "";
+
+    position: absolute;
+    inset: 0 0 0 0;
+
+    transform: scale(.75);
+
+    clip-path: polygon(0 0, 50% 100%, 100% 50%);
+    background: black;
+    z-index: -2;
+}
+
+.ind::before {
+    transform: scale(1.1);
+    z-index: -1;
+}
