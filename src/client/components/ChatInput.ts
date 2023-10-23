@@ -1,6 +1,5 @@
 /// <reference lib="dom" />
 
-
 import { h, ref } from "vue";
 import { ClientActivity } from "../services.ts";
 import { c } from "./Application.ts";
@@ -17,12 +16,17 @@ export default {
                         body.value = (ev.target as HTMLInputElement).value;
                     },
                 }),
-                h("input", {
-                    type: "button",
-                    onClick: () => {
-                        activity.sendChat(body.value);
+                h(
+                    "button",
+                    {
+                        onClick: (ev: Event) => {
+                            ev.preventDefault();
+
+                            activity.sendChat(body.value);
+                        },
                     },
-                }),
+                    "Send",
+                ),
             ]);
     },
 };
