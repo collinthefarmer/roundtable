@@ -1,12 +1,33 @@
+
 :root {
     --source: 0;
 
-    --x: 0;
-    --y: 0;
+    /*--x: 0px;*/
+    /*--y: 0px;*/
+    --cx: 0px;
+    --cy: 0px;
+
+    --message-color: #252525;
+    --message-background: white;
+
+    --bit-length: 2em;
+    --bit-color: #e1e1e1;
+    --bit-depth: .5em;
+
+    --base-em: 16px;
+
+    --box-shadow: 0 0 var(--bit-depth) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 2) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 4) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 6) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 8) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 10) var(--bit-color);
 }
 
-.sourced {
-    background-color: hsla(calc(20.5deg * var(--source)), 99%, 92%, 100%);
+body {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
 }
 
 .ind {
@@ -14,9 +35,7 @@
     top: var(--y);
     left: var(--x);
 
-    clip-path: polygon(0 0, 50% 100%, 100% 50%);
-
-    transition: top .2s cubic-bezier(1, 0, 0, 1), left .2s cubic-bezier(1, 0, 0, 1);
+    z-index: 9;
 }
 
 .ind, .ind::before, .ind::after {
@@ -37,7 +56,192 @@
     z-index: -2;
 }
 
-.ind::before {
-    transform: scale(1.1);
-    z-index: -1;
+dialog[open]::backdrop {
+    background-color: black;
+    pointer-events: none;
+}
+
+dialog form {
+    display: flex;
+    flex-flow: column;
+    align-items: stretch;
+
+    gap: 1em;
+}
+
+dialog form button {
+    padding: 1em;
+}
+
+.msg::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
+}
+
+
+.msg {
+    --message-border-color: hsla(calc(24.5deg * var(--source)), 95%, 70%, 1);
+
+    font-family: sans-serif;
+    cursor: help;
+
+    --border-width: 1px;
+
+    --size: 10em;
+    --internal-padding: 1em;
+
+    line-height: calc(1.2 * var(--base-em));
+
+    position: fixed;
+    left: var(--x);
+    top: var(--y);
+    transform: translate(-50%, calc(-50% - var(--internal-padding)));
+
+    padding: calc(3 * var(--internal-padding)) var(--internal-padding) var(--internal-padding);
+    margin: 0;
+
+    text-anchor: middle;
+    white-space: normal;
+
+    width: var(--size);
+    height: var(--size);
+    box-sizing: border-box;
+    border-radius: var(--size);
+
+    display: table-cell;
+    text-align: center;
+    vertical-align: middle;
+
+    overflow-x: hidden;
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+    scrollbar-width: none;
+
+    border: var(--border-width) solid var(--message-border-color);
+
+    background-color: var(--message-background);
+    color: var(--message-color);
+
+    box-shadow: 0 0 var(--bit-depth) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 2) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 4) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 6) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 8) var(--bit-color),
+    0 0 calc(var(--bit-depth) / 10) var(--bit-color);
+
+    transform-origin: center;
+}
+
+.msg::before {
+    --initial-rotation-deg: 60deg;
+    --final-rotation-deg: 300deg;
+
+    display: inline-flex;
+    position: sticky;
+    inset: 0;
+
+    box-sizing: border-box;
+
+    width: var(--size);
+    height: var(--size);
+    border-radius: var(--size);
+
+    --offset-margin: 0;
+    --offset-margin-top: calc(-1 * var(--size));
+    --offset-margin-bottom: calc(-.5 * var(--size));
+    margin: var(--offset-margin-top) var(--offset-margin) var(--offset-margin-bottom) var(--offset-margin);
+
+    --offset-padding: calc(-1 * (var(--internal-padding)));
+    --translation: calc(var(--offset-padding) - var(--border-width)), calc((3 * var(--offset-padding)) - var(--border-width));
+    transform: translate(var(--translation)) rotate(var(--initial-rotation-deg));
+    transform-origin: center;
+
+    clip-path: polygon(
+            calc(50% - (var(--bit-length) / 2)) 0,
+            calc(50% + (var(--bit-length) / 2)) 0,
+            50% 50%
+    );
+
+    content: "";
+
+    box-shadow: 0 0 var(--bit-depth) var(--bit-color) inset,
+    0 0 calc(var(--bit-depth) / 2) var(--bit-color) inset,
+    0 0 calc(var(--bit-depth) / 4) var(--bit-color) inset,
+    0 0 calc(var(--bit-depth) / 6) var(--bit-color) inset,
+    0 0 calc(var(--bit-depth) / 8) var(--bit-color) inset,
+    0 0 calc(var(--bit-depth) / 10) var(--bit-color) inset;
+
+    border: .4em solid var(--message-border-color);
+
+    opacity: 0;
+
+    animation: turn-scroll linear;
+    animation-timeline: scroll(block nearest);
+    /* spin mode (for dev) */
+    /*--initial-rotation-deg: 0deg;*/
+    /*--final-rotation-deg: 360deg;*/
+    /*animation: turn-scroll 1.5s linear infinite;*/
+}
+
+@keyframes turn-scroll {
+    from {
+        opacity: 1;
+        transform: translate(var(--translation)) rotate(var(--initial-rotation-deg));
+    }
+    to {
+        opacity: 1;
+        transform: translate(var(--translation)) rotate(var(--final-rotation-deg));
+    }
+}
+
+
+.msg:not(.own)::after {
+    content: attr(data-sig);
+
+    display: block;
+
+    margin-top: 1em;
+    font-size: .5em;
+}
+
+.msg {
+    --a: calc(var(--x) - var(--cx));
+    --abs-a: max(var(--a), calc(-1 * var(--a)));
+    --b: calc(var(--y) - var(--cy));
+    --abs-b: max(var(--b), calc(-1 * var(--b)));
+
+    --c2: calc((var(--abs-a) * var(--abs-a)) + (var(--abs-b) * var(--abs-b)));
+    --dist: max(var(--abs-a), var(--abs-b));
+
+    --blur: min(calc(var(--dist) * .4), 4px);
+
+    font-size:  calc((var(--base-em) + 2px) - min(var(--base-em), calc(.6 * var(--dist))));
+    transition: font-size .2s linear, line-height .2s linear;
+}
+
+.msg:hover {
+    z-index: 9;
+}
+
+@keyframes blur-in {
+    from {
+        filter: blur(1px);
+    }
+    to {
+        filter: blur(var(--blur))
+    }
+}
+
+.msg.own {
+    animation: send 1s cubic-bezier(1, 0, 0, 1);
+
+    border-style: dashed;
+}
+
+@keyframes send {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }

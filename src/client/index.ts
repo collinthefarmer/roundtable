@@ -1,19 +1,12 @@
 /// <reference lib="dom" />
 import "reflect-metadata";
 
-import { createApp } from "vue";
+import nearChat from "./applications/nearChat";
 
-import Application from "./components/Application.ts";
+const main = document.querySelector("main");
+if (!main) throw new Error("No main!");
 
-function init() {
-    const main = document.querySelector("main");
-    if (!main) throw new Error("No main!");
-
-    const vapp = createApp(Application);
-    vapp.mount(main);
-}
-
-init();
+nearChat();
 
 // const messages: HTMLDivElement = document.querySelector("#messages")!;
 // const send: HTMLButtonElement = document.querySelector("#send")!;

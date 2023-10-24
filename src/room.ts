@@ -62,9 +62,6 @@ export class Room {
             user.sendJoin(curr.id);
         }
 
-        // send user a welcome message (for testing)
-        user.sendChat("Hello from the room!");
-
         this.users.push(user);
     }
 
@@ -79,10 +76,10 @@ export class Room {
     }
 
     nextUserID(): number {
-        return this.usrId++;
+        return ++this.usrId;
     }
 
     nextMessageId(): number {
-        return this.msgId++;
+        return ++this.msgId;
     }
 }
